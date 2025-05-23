@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 🎮 Last to Leave VC Discord Bot
 
 A fast-paced elimination game for Discord voice channels! This bot lets moderators manage participants, track who's in voice chat, and run custom elimination rounds — including a unique red-blue four-corner challenge. Designed for events that last less than an hour with no limit on the number of participants.
@@ -29,3 +30,7 @@ A fast-paced elimination game for Discord voice channels! This bot lets moderato
 - Moderators must have the assigned moderator role to use commands.
 
 [Description given by OpenAI]
+=======
+# photography_event
+Source of the Photography event bot.
+>>>>>>> 059f15999fa232ecd39ee6cc82a0e08d519eaf9b
