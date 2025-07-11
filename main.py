@@ -26,7 +26,8 @@ c.execute('''
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT NOT NULL,
         userid INTEGER NOT NULL,
-        messageid INTEGER NOT NULL
+        messageid INTEGER NOT NULL,
+        threadid INTEGER NOT NULL
     )
 ''')
 
@@ -35,7 +36,7 @@ conn.close()
 
 TOKEN = os.getenv("DISCORD_TOKEN")
 
-SUBMISSIONS_CHANNEL = 1371015663983788073
+SUBMISSIONS_CHANNEL = 1393120849397157899
 MODERATOR_ROLE = 1371013866212950127
 GUILD_ID = 1371013559571583050
 
@@ -100,6 +101,7 @@ async def on_message(message):
         return 
 
     if any(role.id == MODERATOR_ROLE for role in member.roles):
+        await client.process_commands(message)
         return
     
     image_extensions = ('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp')
@@ -115,6 +117,13 @@ async def on_message(message):
         
         await client.process_commands(message)
         return
+    
+    if len(message.attachments) > 1:
+        await message.delete()
+        await message.channel.send("You are not allowed to send more than one submission.", delete_after = 10)
+
+        await client.process_commands(message)
+        return
 
     if user_exists(message.author.id):
         await message.delete()
@@ -123,14 +132,27 @@ async def on_message(message):
         await client.process_commands(message)
         return
     
-    conn = sqlite3.connect('messages.db')
-    c = conn.cursor()
-    c.execute('INSERT INTO messages (username, userid, messageid) VALUES (?, ?, ?)',
-            (str(message.author), message.author.id, message.id))
-    conn.commit()
-    conn.close()
+    await message.channel.send(f"{message.author.mention} your submission is successful. You **must delete** the submission if you want to change / edit your submission and post a new submission.", delete_after = 20)
+    
+    # create threads for each submission
+
+    thread = await message.create_thread(
+        name = f"{message.author.name}'s submission",
+        auto_archive_duration = 10080
+    )
+
+    await thread.edit(slowmode_delay = 10) # 10 second slowmode
+
+    await thread.send(f"Thread created for the discussion of {message.author.name}'s submission. Remember to keep the discussion respectful.")
 
     await client.process_commands(message)
+
+    conn = sqlite3.connect('messages.db')
+    c = conn.cursor()
+    c.execute('INSERT INTO messages (username, userid, messageid, threadid) VALUES (?, ?, ?, ?)',
+            (str(message.author), message.author.id, message.id, thread.id))
+    conn.commit()
+    conn.close()
 
 @client.event
 async def on_message_delete(message):
@@ -164,6 +186,19 @@ async def on_message_delete(message):
     if isMedia:
         conn = sqlite3.connect('messages.db')
         c = conn.cursor()
+
+        # delete the thread
+
+        c.execute("SELECT threadid FROM messages WHERE messageid = ?", (message.id,))
+        result = c.fetchone()
+
+        thread_id = result[0]
+
+        thread = await message.guild.fetch_channel(thread_id)
+        await thread.delete()
+
+        await message.channel.send(f"{message.author.mention} your submission was deleted and the thread has been removed. You are free to post a new submission if you would like.", delete_after = 10)
+
         c.execute('DELETE FROM messages WHERE messageid = ?', (message.id,))
         conn.commit()
         conn.close()
