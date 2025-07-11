@@ -1,21 +1,26 @@
-## Overview
-- A Discord bot to manage image submissions in a specific channel.
-- Uses SQLite to track and limit user submissions.
-- Designed for fair and organized entry collection.
+# 📸 Discord Submission Bot
 
-## Key Features
-- Only allows image attachments in the submissions channel.
-- Each user can submit only one image; additional submissions are blocked.
-- Moderators can delete all submissions with a slash command.
+A Discord bot to manage image submissions for events or contests.
 
-## Usage
-- Set your Discord token in a `.env` file.
-- Configure channel, role, and guild IDs in the code.
-- Bot uses `keep_alive` for persistent hosting.
+## ⚙️ Features
+- Only allows **image** submissions in a specified channel
+- Each user can post **only one** image
+- Automatically creates a **thread** for each submission
+- Deletes thread if original message is deleted
+- Moderators can clear all submissions via a slash command
+- Stores data in **SQLite**
 
-## Benefits
-- Prevents spam and duplicate entries.
-- Simplifies moderation for contests or events.
-- Keeps submission channels clean and organized.
+## 🚀 Usage
+1. Set your bot token in a `.env` file:
+DISCORD_TOKEN=your-token
+2. Configure `SUBMISSIONS_CHANNEL`, `MODERATOR_ROLE`, and `GUILD_ID` in the script
+3. Run with `python bot.py`
 
-readme by perplexity
+## ✅ Benefits
+- Prevents spam & duplicate submissions
+- Clean and organized image channel
+- Makes contests easy to manage
+
+> Designed for simplicity, fairness, and automation.
+
+readme by OpenAI
