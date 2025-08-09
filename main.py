@@ -5,6 +5,9 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from keep_alive import keep_alive
+import sys
+import asyncio
+import re
 
 def user_exists(user_id):
     conn = sqlite3.connect('messages.db')
@@ -15,6 +18,13 @@ def user_exists(user_id):
 
     return result is not None
 
+def contains_tenor_link(text):
+    pattern = r'https?://(?:media\.)?tenor\.com\S*'
+    return re.search(pattern, text) is not None
+    
+def is_discord_cdn_link(url):
+    return url.startswith("https://cdn.discordapp.com/") or url.startswith("https://media.discordapp.net/")
+    
 load_dotenv()
 keep_alive()
 
@@ -36,12 +46,15 @@ conn.close()
 
 TOKEN = os.getenv("DISCORD_TOKEN")
 
-SUBMISSIONS_CHANNEL = 1393120849397157899
-DISCUSSIONS_CHANNEL = 1375524101858398268
-MODERATOR_ROLE = 1371013866212950127
-GUILD_ID = 1371013559571583050
+SUBMISSIONS_CHANNEL = 1403638053930664027
+DISCUSSIONS_CHANNEL = 1360852676216094822
+MODERATOR_ROLE = 1355771442628792503
+EVENT_HOST_ROLE = 1397116911300640920
+GUILD_ID = 1355771048355692554
 
 bot_deleted_messages = set()
+
+reboot_lock = asyncio.Lock()
 
 intents = discord.Intents.default()
 intents.message_content = True 
@@ -64,7 +77,7 @@ async def deletedb(interaction: discord.Interaction):
 @client.tree.command(name="viewdb",
                      description="View the entries present in the database",
                      guild=discord.Object(id=GUILD_ID))
-@app_commands.checks.has_role(MODERATOR_ROLE)
+@app_commands.checks.has_any_role(MODERATOR_ROLE, EVENT_HOST_ROLE)
 async def viewdb(interaction: discord.Interaction):
 
     # prevent timeout
@@ -96,7 +109,7 @@ async def viewdb(interaction: discord.Interaction):
 @client.tree.command(name="removesubmission",
                      description="Delete the submission of an user",
                      guild=discord.Object(id=GUILD_ID))
-@app_commands.checks.has_role(MODERATOR_ROLE)
+@app_commands.checks.has_any_role(MODERATOR_ROLE, EVENT_HOST_ROLE)
 @app_commands.describe(user="User whose submission you want to remove",
                        reason="Reason for deletion (sent to user via DM)")
 async def removesubmission(interaction: discord.Interaction, user: discord.Member, reason: str):
@@ -150,26 +163,27 @@ async def removesubmission(interaction: discord.Interaction, user: discord.Membe
     conn.commit()
     conn.close()
 
+@client.tree.command(name="reboot", description="Reboots the bot", guild=discord.Object(id=GUILD_ID))
+@commands.is_owner()
+async def reboot(interaction: discord.Interaction):
+
+    global reboot_lock
+
+    async with reboot_lock:
+        await interaction.response.send_message("Reboot initiated.")
+        await client.close()
+        os.execv(sys.executable, [sys.executable] + sys.argv)
+
 @client.command()
 async def ping(ctx):
     await ctx.channel.send("Pong!")
 
 @client.event
 async def on_ready():
+    await client.wait_until_ready()
     print(f"We have logged in as {client.user}")
-
-    print("Commands before sync:")
-    for cmd in client.tree.get_commands():
-        print(cmd.name)
-
-    try:
-        guild = discord.Object(id=GUILD_ID)
-
-        synced = await client.tree.sync(guild = guild)
-        print(f"Synced {len(synced)} command(s)")
-
-    except Exception as e:
-        print(f"Sync error: {e}")
+    await client.tree.sync(guild=discord.Object(id=GUILD_ID))  # Sync to that guild
+    print(f"Synced commands to guild {GUILD_ID}")
 
 @client.event
 async def on_message(message):
@@ -196,11 +210,14 @@ async def on_message(message):
         await client.process_commands(message)
         return
     
-    image_extensions = ('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp')
-    
+    image_extensions = ('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.gif')
+
     for attachment in message.attachments:
         if attachment.filename.lower().endswith(image_extensions):
             isMedia = True
+        
+    if contains_tenor_link(message.content) or is_discord_cdn_link(message.content):
+        isMedia = True
 
     if not isMedia:
 
@@ -281,11 +298,14 @@ async def on_message_delete(message):
     if any(role.id == MODERATOR_ROLE for role in member.roles):
         return
     
-    image_extensions = ('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp')
+    image_extensions = ('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.gif')
     
     for attachment in message.attachments:
         if attachment.filename.lower().endswith(image_extensions):
             isMedia = True
+
+    if contains_tenor_link(message.content) or is_discord_cdn_link(message.content):
+        isMedia = True
 
     if isMedia:
         conn = sqlite3.connect('messages.db')
@@ -306,5 +326,13 @@ async def on_message_delete(message):
         c.execute('DELETE FROM messages WHERE messageid = ?', (message.id,))
         conn.commit()
         conn.close()
+
+@client.tree.error
+async def on_appcommand_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
+    if isinstance(error, app_commands.errors.MissingRole):
+        await interaction.response.send_message("You do not have permissions to run this command.", ephemeral=True)
+    else:
+        print(f"error: {error}")
+        await interaction.response.send_message("Something went wrong.")
 
 client.run(TOKEN)
