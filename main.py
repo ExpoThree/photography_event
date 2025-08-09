@@ -333,6 +333,6 @@ async def on_appcommand_error(interaction: discord.Interaction, error: app_comma
         await interaction.response.send_message("You do not have permissions to run this command.", ephemeral=True)
     else:
         print(f"error: {error}")
-        await interaction.response.send_message("Something went wrong.")
+        await interaction.response.send_message("Something went wrong.", ephemeral=True)
 
 client.run(TOKEN)
