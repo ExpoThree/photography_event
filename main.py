@@ -219,6 +219,9 @@ async def on_message(message):
     if contains_tenor_link(message.content) or is_discord_cdn_link(message.content):
         isMedia = True
 
+    # For now classify all messages are media
+    isMedia = True
+
     if not isMedia:
 
         bot_deleted_messages.add(message.id)
@@ -306,6 +309,9 @@ async def on_message_delete(message):
 
     if contains_tenor_link(message.content) or is_discord_cdn_link(message.content):
         isMedia = True
+
+    # For now classify all messages are media
+    isMedia = True
 
     if isMedia:
         conn = sqlite3.connect('messages.db')
